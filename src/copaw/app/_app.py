@@ -31,6 +31,10 @@ from .runner.manager import ChatManager
 from .routers import router as api_router
 from ..envs import load_envs_into_environ
 from .auth import setup_auth  # Auth module
+from ..agents.skills_repo_sync import (
+    sync_skills_from_repo,
+    is_repo_configured,
+)
 
 # Apply log level on load so reload child process gets same level as CLI.
 logger = setup_logger(os.environ.get(LOG_LEVEL_ENV, "info"))
@@ -46,6 +50,15 @@ mimetypes.add_type("application/wasm", ".wasm")
 # Load persisted env vars into os.environ at module import time
 # so they are available before the lifespan starts.
 load_envs_into_environ()
+
+# Auto-sync skills from repo on startup if configured
+if is_repo_configured():
+    logger.info("Skills repository configured, syncing on startup...")
+    result = sync_skills_from_repo()
+    if result.success:
+        logger.info("Skills repo sync completed: %s", result.message)
+    else:
+        logger.warning("Skills repo sync failed: %s", result.message)
 
 runner = AgentRunner()
 

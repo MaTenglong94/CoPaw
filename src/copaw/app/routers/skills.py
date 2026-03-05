@@ -11,6 +11,10 @@ from ...agents.skills_hub import (
     search_hub_skills,
     install_skill_from_hub,
 )
+from ...agents.skills_repo_sync import (
+    sync_skills_from_repo,
+    is_repo_configured,
+)
 
 
 class SkillSpec(SkillInfo):
@@ -213,3 +217,61 @@ async def load_skill_file(
         source=source,
     )
     return {"content": content}
+
+
+# ------------------------------------------------------------------
+# Skills Repo Sync endpoints
+# ------------------------------------------------------------------
+
+
+class RepoSyncResponse(BaseModel):
+    """Response for repo sync operation."""
+
+    success: bool
+    added: list[str] = []
+    updated: list[str] = []
+    removed: list[str] = []
+    message: str
+
+
+class RepoStatusResponse(BaseModel):
+    """Response for repo status check."""
+
+    configured: bool
+
+
+@router.get("/repo/status", response_model=RepoStatusResponse)
+async def get_repo_status():
+    """Check if a skills repository is configured.
+
+    Returns whether COPAW_SKILLS_REPO_URL environment variable is set.
+    Used by frontend to conditionally show the Sync button.
+    """
+    return RepoStatusResponse(configured=is_repo_configured())
+
+
+@router.post("/repo/sync", response_model=RepoSyncResponse)
+async def sync_repo():
+    """Sync skills from the configured Git repository.
+
+    This endpoint triggers a manual sync from the repository configured
+    via environment variables:
+    - COPAW_SKILLS_REPO_URL: Repository URL (required)
+    - COPAW_SKILLS_REPO_TOKEN: GitHub PAT for private repos (optional)
+    - COPAW_SKILLS_REPO_BRANCH: Branch name (optional, default: main)
+
+    The sync will:
+    1. Clone or pull the repository
+    2. Scan for skills (directories with SKILL.md)
+    3. Sync to customized_skills directory
+    4. Remove skills that no longer exist in repo
+    5. Enable all synced skills
+    """
+    result = sync_skills_from_repo()
+    return RepoSyncResponse(
+        success=result.success,
+        added=result.added,
+        updated=result.updated,
+        removed=result.removed,
+        message=result.message,
+    )
