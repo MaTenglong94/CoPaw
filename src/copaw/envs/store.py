@@ -11,17 +11,54 @@ Persistence strategy (two layers):
 from __future__ import annotations
 
 import json
+import logging
 import os
+import shutil
 from pathlib import Path
 from typing import Optional
 
-_ENVS_DIR = Path(__file__).resolve().parent
-_ENVS_JSON = _ENVS_DIR / "envs.json"
+from copaw.constant import WORKING_DIR
+
+logger = logging.getLogger(__name__)
+
+# Legacy path (inside package directory, no longer used for writing)
+_LEGACY_ENVS_DIR = Path(__file__).resolve().parent
+_LEGACY_ENVS_JSON = _LEGACY_ENVS_DIR / "envs.json"
+
+# New path (in working directory for persistence)
+_ENVS_JSON = WORKING_DIR / "envs.json"
 
 
 def get_envs_json_path() -> Path:
     """Return the default envs.json path."""
     return _ENVS_JSON
+
+
+def _migrate_legacy_envs_json() -> None:
+    """Migrate envs.json from package dir to working dir if needed.
+
+    This handles the transition from storing envs.json inside the
+    Python package (which gets reset on Docker rebuild) to the working
+    directory (which can be persisted via volume mounts).
+    """
+    if _ENVS_JSON.exists():
+        return
+
+    if _LEGACY_ENVS_JSON.exists():
+        try:
+            _ENVS_JSON.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(_LEGACY_ENVS_JSON, _ENVS_JSON)
+            logger.info(
+                "Migrated envs.json from %s to %s",
+                _LEGACY_ENVS_JSON,
+                _ENVS_JSON,
+            )
+        except Exception as e:
+            logger.warning(
+                "Failed to migrate envs.json: %s. "
+                "Will create a new one in working directory.",
+                e,
+            )
 
 
 # ------------------------------------------------------------------
@@ -61,6 +98,8 @@ def load_envs(
 ) -> dict[str, str]:
     """Load env vars from envs.json."""
     if path is None:
+        # Try to migrate from legacy location before using new path
+        _migrate_legacy_envs_json()
         path = get_envs_json_path()
     if not path.is_file():
         return {}
