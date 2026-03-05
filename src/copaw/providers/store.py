@@ -4,9 +4,13 @@
 from __future__ import annotations
 
 import json
+import logging
+import shutil
 from pathlib import Path
 from typing import Optional
 from urllib.parse import urlsplit, urlunsplit
+
+from copaw.constant import WORKING_DIR
 
 from .models import (
     CustomProviderData,
@@ -27,12 +31,45 @@ from .registry import (
     validate_custom_provider_id,
 )
 
-_PROVIDERS_DIR = Path(__file__).resolve().parent
-_PROVIDERS_JSON = _PROVIDERS_DIR / "providers.json"
+logger = logging.getLogger(__name__)
+
+# Legacy path (inside package directory, no longer used for writing)
+_LEGACY_PROVIDERS_DIR = Path(__file__).resolve().parent
+_LEGACY_PROVIDERS_JSON = _LEGACY_PROVIDERS_DIR / "providers.json"
+
+# New path (in working directory for persistence)
+_PROVIDERS_JSON = WORKING_DIR / "providers.json"
 
 
 def get_providers_json_path() -> Path:
     return _PROVIDERS_JSON
+
+
+def _migrate_legacy_providers_json() -> None:
+    """Migrate providers.json from package dir to working dir if needed.
+
+    This handles the transition from storing providers.json inside the
+    Python package (which gets reset on Docker rebuild) to the working
+    directory (which can be persisted via volume mounts).
+    """
+    if _PROVIDERS_JSON.exists():
+        return
+
+    if _LEGACY_PROVIDERS_JSON.exists():
+        try:
+            _PROVIDERS_JSON.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(_LEGACY_PROVIDERS_JSON, _PROVIDERS_JSON)
+            logger.info(
+                "Migrated providers.json from %s to %s",
+                _LEGACY_PROVIDERS_JSON,
+                _PROVIDERS_JSON,
+            )
+        except Exception as e:
+            logger.warning(
+                "Failed to migrate providers.json: %s. "
+                "Will create a new one in working directory.",
+                e,
+            )
 
 
 def _ensure_base_url(settings: ProviderSettings, defn) -> None:
@@ -202,6 +239,8 @@ def _ensure_all_providers(providers: dict[str, ProviderSettings]) -> None:
 def load_providers_json(path: Optional[Path] = None) -> ProvidersData:
     """Load providers.json, creating/repairing as needed."""
     if path is None:
+        # Try to migrate from legacy location before using new path
+        _migrate_legacy_providers_json()
         path = get_providers_json_path()
 
     providers: dict[str, ProviderSettings] = {}
