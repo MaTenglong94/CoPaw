@@ -1,6 +1,18 @@
 import { request } from "../request";
 import type { HubSkillSpec, SkillSpec } from "../types";
 
+export interface RepoSyncResponse {
+  success: boolean;
+  added: string[];
+  updated: string[];
+  removed: string[];
+  message: string;
+}
+
+export interface RepoStatusResponse {
+  configured: boolean;
+}
+
 export const skillApi = {
   listSkills: () => request<SkillSpec[]>("/skills"),
 
@@ -53,5 +65,13 @@ export const skillApi = {
     }>("/skills/hub/install", {
       method: "POST",
       body: JSON.stringify(payload),
+    }),
+
+  getRepoStatus: () =>
+    request<RepoStatusResponse>("/skills/repo/status"),
+
+  syncRepo: () =>
+    request<RepoSyncResponse>("/skills/repo/sync", {
+      method: "POST",
     }),
 };

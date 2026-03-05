@@ -58,6 +58,7 @@
     "title": "Skills",
     "description": "Manage agent skills and capabilities.",
     "importSkills": "Import Skill",
+    "syncSkills": "Sync Skills",
     "enterSkillUrl": "Enter Skill URL",
     "supportedSkillUrlSources": "Currently supported skill URL sources:",
     "urlExamples": "URL examples:",

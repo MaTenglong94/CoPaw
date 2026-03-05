@@ -151,5 +151,6 @@ export function useSkills() {
     importFromHub,
     toggleEnabled,
     deleteSkill,
+    refreshSkills: fetchSkills,
   };
 }

@@ -1,11 +1,12 @@
-import { useState } from "react";
-import { Button, Form, Modal } from "@agentscope-ai/design";
-import { DownloadOutlined, PlusOutlined } from "@ant-design/icons";
+import { useState, useEffect } from "react";
+import { Button, Form, Modal, message } from "@agentscope-ai/design";
+import { DownloadOutlined, PlusOutlined, SyncOutlined } from "@ant-design/icons";
 import type { SkillSpec } from "../../../api/types";
 import { SkillCard, SkillDrawer } from "./components";
 import { useSkills } from "./useSkills";
 import { useTranslation } from "react-i18next";
 import styles from "./index.module.less";
+import { skillApi } from "../../../api/modules/skill";
 
 function SkillsPage() {
   const { t } = useTranslation();
@@ -17,6 +18,7 @@ function SkillsPage() {
     importFromHub,
     toggleEnabled,
     deleteSkill,
+    refreshSkills,
   } = useSkills();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [importModalOpen, setImportModalOpen] = useState(false);
@@ -25,6 +27,40 @@ function SkillsPage() {
   const [editingSkill, setEditingSkill] = useState<SkillSpec | null>(null);
   const [hoverKey, setHoverKey] = useState<string | null>(null);
   const [form] = Form.useForm<SkillSpec>();
+  const [repoConfigured, setRepoConfigured] = useState(false);
+  const [syncing, setSyncing] = useState(false);
+
+  // Check if skills repo is configured
+  useEffect(() => {
+    const checkRepoStatus = async () => {
+      try {
+        const result = await skillApi.getRepoStatus();
+        setRepoConfigured(result.configured);
+      } catch (error) {
+        console.error("Failed to check repo status", error);
+      }
+    };
+    checkRepoStatus();
+  }, []);
+
+  const handleSyncRepo = async () => {
+    if (syncing) return;
+    setSyncing(true);
+    try {
+      const result = await skillApi.syncRepo();
+      if (result.success) {
+        message.success(result.message || "Skills synced successfully");
+        await refreshSkills();
+      } else {
+        message.error(result.message || "Sync failed");
+      }
+    } catch (error) {
+      console.error("Failed to sync skills repo", error);
+      message.error("Failed to sync skills");
+    } finally {
+      setSyncing(false);
+    }
+  };
 
   const supportedSkillUrlPrefixes = [
     "https://skills.sh/",
@@ -123,6 +159,16 @@ function SkillsPage() {
           <p className={styles.description}>{t("skills.description")}</p>
         </div>
         <div style={{ display: "flex", gap: 8 }}>
+          {repoConfigured && (
+            <Button
+              type="primary"
+              onClick={handleSyncRepo}
+              icon={<SyncOutlined spin={syncing} />}
+              loading={syncing}
+            >
+              {t("skills.syncSkills")}
+            </Button>
+          )}
           <Button
             type="primary"
             onClick={handleImportFromHub}
