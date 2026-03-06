@@ -82,3 +82,6 @@ openspec
 /AGENTS.md
 CLAUDE.md
 *.tmp
+
+# extra
+extra/
