@@ -13,7 +13,7 @@ from agentscope.message import (
     VideoBlock,
 )
 
-from ...constant import WORKING_DIR
+from ...constant import WORKING_DIR, COPAW_BASE_URL
 from ..schema import FileBlock
 
 
@@ -84,31 +84,47 @@ async def send_file_to_user(
         if str(resolved_path).startswith(str(WORKING_DIR)):
             # Generate HTTP URL for cloud deployment
             relative_path = resolved_path.relative_to(WORKING_DIR)
-            file_url = f"/api/workspace/file/{relative_path.as_posix()}"
+            relative_url = f"/api/workspace/file/{relative_path.as_posix()}"
+            # Use full URL if COPAW_BASE_URL is set
+            file_url = (
+                f"{COPAW_BASE_URL}{relative_url}" if COPAW_BASE_URL else relative_url
+            )
         else:
             # Use file:// URL for local files outside WORKING_DIR
             file_url = f"file://{absolute_path}"
-        source = {"type": "url", "url": file_url}
+            relative_url = file_url  # For non-WORKING_DIR files, use full path
+        source = {"type": "url", "url": relative_url}
 
         if as_type == "image":
             return ToolResponse(
                 content=[
                     ImageBlock(type="image", source=source),
-                    TextBlock(type="text", text="已成功发送文件"),
+                    TextBlock(type="text", text=f"已成功发送文件，链接：{file_url}"),
                 ],
             )
         if as_type == "audio":
             return ToolResponse(
                 content=[
                     AudioBlock(type="audio", source=source),
-                    TextBlock(type="text", text="已成功发送文件"),
+                    TextBlock(type="text", text=f"已成功发送文件，链接：{file_url}"),
                 ],
             )
         if as_type == "video":
             return ToolResponse(
                 content=[
                     VideoBlock(type="video", source=source),
-                    TextBlock(type="text", text="已成功发送文件"),
+                    TextBlock(type="text", text=f"已成功发送文件，链接：{file_url}"),
+                ],
+            )
+
+        # For HTML files, return a clickable link instead of file download
+        if mime_type == "text/html":
+            return ToolResponse(
+                content=[
+                    TextBlock(
+                        type="text",
+                        text=f"已生成 HTML 文件，可在浏览器中打开：\n{file_url}",
+                    ),
                 ],
             )
 
@@ -119,7 +135,7 @@ async def send_file_to_user(
                     source=source,
                     filename=os.path.basename(file_path),
                 ),
-                TextBlock(type="text", text="已成功发送文件"),
+                TextBlock(type="text", text=f"已成功发送文件，下载链接：{file_url}"),
             ],
         )
 

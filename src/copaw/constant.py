@@ -92,3 +92,8 @@ DASHSCOPE_BASE_URL = os.environ.get(
 # Example: COPAW_CORS_ORIGINS="http://localhost:5173,http://127.0.0.1:5173"
 # When unset, CORS middleware is not applied.
 CORS_ORIGINS = os.environ.get("COPAW_CORS_ORIGINS", "").strip()
+
+# Base URL for cloud deployment (e.g., "https://your-domain.com")
+# Used to generate full URLs for file downloads and HTML links.
+# When unset, relative URLs are used (suitable for local deployment).
+COPAW_BASE_URL = os.environ.get("COPAW_BASE_URL", "").rstrip("/")
