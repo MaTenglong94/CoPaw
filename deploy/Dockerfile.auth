@@ -46,13 +46,19 @@ COPY src ./src
 COPY --from=console-builder /app/console/dist/ ./src/copaw/console/
 
 RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir .
+    pip install --no-cache-dir . && \
+    pip install --no-cache-dir langfuse
 
 # Initialize working directory with default config
 RUN copaw init --defaults --accept-security
 
 # Default port
 ENV COPAW_PORT=8088
+
+# Langfuse tracing (pass real values via --env-file .env or -e flags at runtime)
+ENV LANGFUSE_PUBLIC_KEY=""
+ENV LANGFUSE_SECRET_KEY=""
+ENV LANGFUSE_HOST="https://cloud.langfuse.com"
 
 # Create startup script
 RUN echo '#!/bin/bash\n\
