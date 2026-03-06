@@ -19,6 +19,7 @@ from .command_dispatch import (
 from .query_error_dump import write_query_error_dump
 from .session import SafeJSONSession
 from .utils import build_env_context
+from ...utils.tracing import create_trace, flush as langfuse_flush
 from ..channels.schema import DEFAULT_CHANNEL
 from ...agents.memory import MemoryManager
 from ...agents.model_factory import create_model_and_formatter
@@ -96,6 +97,12 @@ class AgentRunner(Runner):
                     ensure_ascii=False,
                     indent=2,
                 ),
+            )
+
+            create_trace(
+                session_id=session_id,
+                user_id=user_id,
+                input_preview=str(msgs)[:500],
             )
 
             env_context = build_env_context(
@@ -196,6 +203,8 @@ class AgentRunner(Runner):
                 ) + e.args[1:]
             raise
         finally:
+            langfuse_flush()
+
             if agent is not None and session_state_loaded:
                 await self.session.save_session_state(
                     session_id=session_id,

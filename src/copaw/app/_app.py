@@ -41,6 +41,10 @@ from ..agents.skills_repo_sync import (
 # Apply log level on load so reload child process gets same level as CLI.
 logger = setup_logger(os.environ.get(LOG_LEVEL_ENV, "info"))
 
+# Patch openai SDK with Langfuse instrumentation (must run before any model calls)
+from ..utils.tracing import setup_langfuse  # noqa: E402
+setup_langfuse()
+
 # Ensure static assets are served with browser-compatible MIME types across
 # platforms (notably Windows may miss .js/.mjs mappings).
 mimetypes.init()
