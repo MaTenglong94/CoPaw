@@ -344,6 +344,9 @@ def is_public_path(path: str) -> bool:
         return True
     if path.startswith("/assets/"):
         return True
+    # Allow workspace file access for sharing
+    if path.startswith("/api/workspace/file/"):
+        return True
     return False
 
 
