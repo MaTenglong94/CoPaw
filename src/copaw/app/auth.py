@@ -5,15 +5,22 @@ This module provides a basic login protection for the CoPaw console when
 deployed on a public server. It uses session-based authentication with
 hardcoded credentials that can be overridden via environment variables.
 """
+import json
+import logging
 import os
 import secrets
 import time
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Optional
 
 from fastapi import Request, Response
 from fastapi.responses import HTMLResponse, JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
+
+from copaw.constant import WORKING_DIR
+
+logger = logging.getLogger(__name__)
 
 # Default credentials (hardcoded, can be overridden via env vars)
 # These are randomly generated complex credentials
@@ -62,9 +69,57 @@ class Session:
 
 @dataclass
 class SessionManager:
-    """In-memory session manager."""
+    """Session manager with file persistence."""
 
     sessions: dict[str, Session] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        """Load sessions from file on initialization."""
+        self._load()
+
+    def _get_sessions_file(self) -> Path:
+        """Get the path to the sessions file."""
+        return WORKING_DIR / "sessions.json"
+
+    def _load(self) -> None:
+        """Load sessions from file."""
+        sessions_file = self._get_sessions_file()
+        if not sessions_file.exists():
+            return
+
+        try:
+            with open(sessions_file, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            self.sessions = {
+                token: Session(**session_data)
+                for token, session_data in data.items()
+            }
+            logger.debug(f"Loaded {len(self.sessions)} sessions from {sessions_file}")
+        except (json.JSONDecodeError, KeyError, TypeError) as e:
+            logger.warning(f"Failed to load sessions file: {e}")
+            self.sessions = {}
+
+    def _save(self) -> None:
+        """Save sessions to file."""
+        sessions_file = self._get_sessions_file()
+
+        # Ensure parent directory exists
+        sessions_file.parent.mkdir(parents=True, exist_ok=True)
+
+        try:
+            data = {
+                token: {
+                    "username": session.username,
+                    "created_at": session.created_at,
+                    "expires_at": session.expires_at,
+                }
+                for token, session in self.sessions.items()
+            }
+            with open(sessions_file, "w", encoding="utf-8") as f:
+                json.dump(data, f, indent=2)
+            logger.debug(f"Saved {len(self.sessions)} sessions to {sessions_file}")
+        except Exception as e:
+            logger.error(f"Failed to save sessions file: {e}")
 
     def create_session(self, username: str, expire_hours: int) -> str:
         """Create a new session and return the token."""
@@ -75,6 +130,7 @@ class SessionManager:
             created_at=now,
             expires_at=now + expire_hours * 3600,
         )
+        self._save()
         return token
 
     def validate_session(self, token: str) -> Optional[str]:
@@ -84,12 +140,15 @@ class SessionManager:
             return None
         if time.time() > session.expires_at:
             del self.sessions[token]
+            self._save()
             return None
         return session.username
 
     def delete_session(self, token: str) -> None:
         """Delete a session."""
-        self.sessions.pop(token, None)
+        if token in self.sessions:
+            del self.sessions[token]
+            self._save()
 
     def cleanup_expired(self) -> None:
         """Remove expired sessions."""
@@ -98,8 +157,10 @@ class SessionManager:
             token for token, session in self.sessions.items()
             if now > session.expires_at
         ]
-        for token in expired:
-            del self.sessions[token]
+        if expired:
+            for token in expired:
+                del self.sessions[token]
+            self._save()
 
 
 # Global instances
