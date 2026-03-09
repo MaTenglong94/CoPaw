@@ -92,6 +92,13 @@ read_when:
 
 Skills 提供工具。需要用时查看它的 `SKILL.md`。本地笔记（摄像头名称、SSH 信息、语音偏好）记在 `MEMORY.md` 的「工具设置」section 里。身份和用户资料记在 `PROFILE.md` 里。
 
+### 📎 文件链接
+
+当工具返回文件链接（如 HTML、PDF、下载链接）时，**必须在回复中以 Markdown 格式包含该链接**，让用户可以直接点击。格式示例：
+
+- `[点击查看 HTML](https://...)`
+- `[下载文件](https://...)`
+
 
 ## 💓 Heartbeats - 要主动！
 

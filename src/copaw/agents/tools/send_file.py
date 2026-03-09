@@ -101,21 +101,21 @@ async def send_file_to_user(
             return ToolResponse(
                 content=[
                     ImageBlock(type="image", source=source),
-                    TextBlock(type="text", text=f"已成功发送文件，链接：{file_url}"),
+                    TextBlock(type="text", text=f"[IMPORTANT] 请将以下链接包含在你的回复中，让用户可以直接点击：\n{file_url}"),
                 ],
             )
         if as_type == "audio":
             return ToolResponse(
                 content=[
                     AudioBlock(type="audio", source=source),
-                    TextBlock(type="text", text=f"已成功发送文件，链接：{file_url}"),
+                    TextBlock(type="text", text=f"[IMPORTANT] 请将以下链接包含在你的回复中，让用户可以直接点击：\n{file_url}"),
                 ],
             )
         if as_type == "video":
             return ToolResponse(
                 content=[
                     VideoBlock(type="video", source=source),
-                    TextBlock(type="text", text=f"已成功发送文件，链接：{file_url}"),
+                    TextBlock(type="text", text=f"[IMPORTANT] 请将以下链接包含在你的回复中，让用户可以直接点击：\n{file_url}"),
                 ],
             )
 
@@ -125,7 +125,7 @@ async def send_file_to_user(
                 content=[
                     TextBlock(
                         type="text",
-                        text=f"已生成 HTML 文件，可在浏览器中打开：\n{file_url}",
+                        text=f"[IMPORTANT] 请将以下链接包含在你的回复中，让用户可以直接点击：\n{file_url}",
                     ),
                 ],
             )
@@ -137,7 +137,7 @@ async def send_file_to_user(
                     source=source,
                     filename=os.path.basename(file_path),
                 ),
-                TextBlock(type="text", text=f"已成功发送文件，下载链接：{file_url}"),
+                TextBlock(type="text", text=f"[IMPORTANT] 请将以下链接包含在你的回复中，让用户可以直接点击：\n{file_url}"),
             ],
         )
 
