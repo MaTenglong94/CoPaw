@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import io
+import mimetypes
 import shutil
 import tempfile
 import zipfile
@@ -14,6 +15,49 @@ from fastapi import APIRouter, HTTPException, UploadFile, File
 from fastapi.responses import StreamingResponse, FileResponse
 
 from ...constant import WORKING_DIR
+
+# Initialize mimetypes
+mimetypes.init()
+
+# File extensions that should be displayed inline (previewed in browser)
+INLINE_EXTENSIONS = {
+    # Web
+    ".html", ".htm", ".xhtml",
+    # Documents
+    ".pdf",
+    # Images
+    ".jpg", ".jpeg", ".png", ".gif", ".webp", ".svg", ".ico", ".bmp",
+    # Audio
+    ".mp3", ".wav", ".ogg", ".m4a", ".flac",
+    # Video
+    ".mp4", ".webm", ".ogg", ".mov",
+    # Text
+    ".txt", ".json", ".xml", ".csv", ".log",
+    # Code
+    ".js", ".css", ".py", ".md", ".yaml", ".yml", ".toml",
+}
+
+
+def _get_media_type(file_path: Path) -> tuple[str, bool]:
+    """Get media type and whether to display inline.
+
+    Returns:
+        tuple of (media_type, inline)
+    """
+    ext = file_path.suffix.lower()
+
+    # Check if this extension should be displayed inline
+    if ext in INLINE_EXTENSIONS:
+        # Use mimetypes to guess the correct type
+        media_type, _ = mimetypes.guess_type(file_path)
+        if media_type:
+            return media_type, True
+        # Fallback for known inline types
+        return "application/octet-stream", True
+
+    # For other types, use mimetypes or fallback to octet-stream
+    media_type, _ = mimetypes.guess_type(file_path)
+    return media_type or "application/octet-stream", False
 
 router = APIRouter(prefix="/workspace", tags=["workspace"])
 
@@ -190,10 +234,12 @@ async def upload_workspace(  # pylint: disable=too-many-branches
 
 @router.get(
     "/file/{file_path:path}",
-    summary="Download a single file from workspace",
+    summary="Get a file from workspace",
     description=(
-        "Download a single file from WORKING_DIR. "
-        "Only files within WORKING_DIR are accessible for security."
+        "Get a single file from WORKING_DIR. "
+        "Only files within WORKING_DIR are accessible for security. "
+        "Previewable files (HTML, PDF, images, text) are displayed inline; "
+        "others are downloaded."
     ),
     responses={
         200: {
@@ -205,13 +251,15 @@ async def upload_workspace(  # pylint: disable=too-many-branches
     },
 )
 async def download_file(file_path: str):
-    """Download a single file from the workspace.
+    """Get a single file from the workspace.
 
     Args:
         file_path: Relative path to the file within WORKING_DIR
 
     Returns:
-        FileResponse with the file content
+        FileResponse with the file content.
+        Previewable files (HTML, PDF, images, text) are displayed inline;
+        others trigger a download.
     """
     # Resolve the full path
     full_path = (WORKING_DIR / file_path).resolve()
@@ -236,9 +284,19 @@ async def download_file(file_path: str):
             detail=f"Path is not a file: {file_path}",
         )
 
-    # Return the file with appropriate headers
-    return FileResponse(
-        path=full_path,
-        filename=full_path.name,
-        media_type="application/octet-stream",
-    )
+    # Get appropriate media type and inline preference
+    media_type, inline = _get_media_type(full_path)
+
+    if inline:
+        # Inline display - no filename header means Content-Disposition: inline
+        return FileResponse(
+            path=full_path,
+            media_type=media_type,
+        )
+    else:
+        # Download - set filename to trigger attachment
+        return FileResponse(
+            path=full_path,
+            filename=full_path.name,
+            media_type=media_type,
+        )
