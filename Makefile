@@ -74,8 +74,24 @@ clean: stop
 ## Convenience Commands
 ## ----------------------------------------------------------------------------
 
-## update: Pull latest code, rebuild, and restart (full update cycle)
-update: build stop run
+## update: Pull latest dev-mtl branch, rebuild, and restart (full update cycle)
+update:
+	@echo "Switching to dev-mtl branch..."
+	git checkout dev-mtl
+	git pull origin dev-mtl
+	@echo "Building image: $(IMAGE)"
+	docker build -t $(IMAGE) -f $(DOCKERFILE) .
+	@echo "Build complete: $(IMAGE)"
+	@echo "Stopping container: $(CONTAINER)"
+	-docker stop $(CONTAINER) 2>/dev/null || true
+	-docker rm $(CONTAINER) 2>/dev/null || true
+	@echo "Starting container: $(CONTAINER)"
+	docker run -d \
+		--name $(CONTAINER) \
+		-p $(PORT):8088 \
+		-v $(VOLUME):/app/working \
+		$(IMAGE)
+	@echo "Container started on port $(PORT)"
 	@echo "Update complete!"
 
 ## status: Alias for ps
