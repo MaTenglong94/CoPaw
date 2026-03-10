@@ -181,9 +181,18 @@ def get_supabase_jwks() -> Optional[list[dict[str, Any]]]:
     if not url:
         return None
 
-    jwks_url = f"{url}/auth/v1/jwks"
+    headers: dict[str, str] = {}
+    if auth_config.supabase_anon_key:
+        headers["apikey"] = auth_config.supabase_anon_key
+
+    jwks_url = f"{url}/auth/v1/.well-known/jwks.json"
+    fallback_url = f"{url}/auth/v1/jwks"
     try:
-        response = httpx.get(jwks_url, timeout=10)
+        response = httpx.get(jwks_url, headers=headers, timeout=10)
+        if response.status_code == 401 and headers:
+            logger.warning("JWKS endpoint returned 401, trying fallback endpoint: %s", fallback_url)
+            response = httpx.get(fallback_url, headers=headers, timeout=10)
+            jwks_url = fallback_url
         response.raise_for_status()
         data = response.json()
         keys = data.get("keys", [])
